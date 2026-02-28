@@ -186,7 +186,7 @@ Must add up to `1.0`.
 | `REDIS_PORT` | `"6379"` | Redis port |
 | `REDIS_PASSWORD` | `"password"` | Redis password |
 | `PROBE_INTERVAL` | `"30"` | Seconds between probe cycles |
-| `PROBE_COUNT` | `"50"` | Number of ping packets per probe cycle |
+| `PROBE_COUNT` | `"10"` | Number of ping packets per probe cycle |
 
 #### Path Variables
 
