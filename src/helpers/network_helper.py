@@ -23,7 +23,7 @@ class NetworkCollector(object): # Main network collection class
 
         try:
             result = subprocess.run(
-                ["ping", "-n", "-i", "0.1", "-c", count, site],
+                ["ping", "-n", "-i", "0.5", "-c", count, site],
                 capture_output=True, text=True, timeout=30
             )
             ping = result.stdout
@@ -61,11 +61,12 @@ class NetworkCollector(object): # Main network collection class
 
         server = [nameserver[1]]
 
+        my_resolver = dns.resolver.Resolver()
+        my_resolver.nameservers = server
+        my_resolver.timeout = 5       # Per-request timeout in seconds
+        my_resolver.lifetime = 10     # Total time allowed for all attempts
+
         for attempt in range(1, retries + 1):
-            my_resolver = dns.resolver.Resolver()
-            my_resolver.nameservers = server
-            my_resolver.timeout = 5       # Per-request timeout in seconds
-            my_resolver.lifetime = 10     # Total time allowed for all attempts
 
             try:
                 answers = my_resolver.resolve(site,'A')
@@ -106,7 +107,7 @@ class NetworkCollector(object): # Main network collection class
         self.stats = []
         self.dnsstats = []
 
-        # Create threads, start them
+        # Create threads for ping and DNS tests, start them concurrently
         threads = []
 
         for item in self.sites:
@@ -114,21 +115,14 @@ class NetworkCollector(object): # Main network collection class
             threads.append(t)
             t.start()
 
-        # Wait for threads to complete
-        for t in threads:
-            t.join()
-
-        # Create threads, start them
-        threads = []
-
         for item in self.nameservers:
             s = Thread(target=self.dnstest, args=(self.dns_test_site,item,))
             threads.append(s)
             s.start()
 
-        # Wait for threads to complete
-        for s in threads:
-            s.join()
+        # Wait for all threads to complete
+        for t in threads:
+            t.join()
 
         results = json.dumps({
             "stats":self.stats,

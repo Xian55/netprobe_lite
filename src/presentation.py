@@ -1,6 +1,7 @@
 # Data presentation service (prometheus)
 
 import time
+from threading import Event
 from prometheus_client.core import GaugeMetricFamily, REGISTRY
 from prometheus_client import start_http_server
 import json
@@ -15,25 +16,32 @@ logger = setup_logging(f"{log_path}/presentation.log")
 
 class CustomCollector(object):
     def __init__(self):
-        pass
+        self.cache = None
 
     def collect(self):
 
-        # Connect to Redis
+        # Connect to Redis (reuse existing connection)
 
-        cache = None
-        try:
-            cache = RedisConnect()
-        except Exception as e:
-            logger.error("Could not connect to Redis")
-            logger.error(e)
+        if not self.cache:
+            try:
+                self.cache = RedisConnect()
+            except Exception as e:
+                logger.error("Could not connect to Redis")
+                logger.error(e)
 
-        if not cache:
+        if not self.cache:
             return
+
+        cache = self.cache
 
         # Retrieve Netprobe data
 
-        results_netprobe = cache.redis_read('netprobe') # Get the latest results from Redis
+        try:
+            results_netprobe = cache.redis_read('netprobe') # Get the latest results from Redis
+        except Exception as e:
+            logger.error(f"Redis read failed, will reconnect next scrape: {e}")
+            self.cache = None
+            return
 
         if results_netprobe:
             stats_netprobe = json.loads(json.loads(results_netprobe))
@@ -171,5 +179,4 @@ if __name__ == '__main__':
     start_http_server(Config_Presentation.presentation_port,addr=Config_Presentation.presentation_interface)
 
     REGISTRY.register(CustomCollector())
-    while True:
-        time.sleep(15)
+    Event().wait()

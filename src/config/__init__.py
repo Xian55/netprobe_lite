@@ -13,7 +13,7 @@ except Exception:
 
 class Config_Netprobe():
     probe_interval = int(os.getenv('PROBE_INTERVAL', '30'))
-    probe_count = int(os.getenv('PROBE_COUNT', '50'))
+    probe_count = int(os.getenv('PROBE_COUNT', '10'))
     sites = os.getenv('SITES', 'google.com,facebook.com,twitter.com,youtube.com,amazon.com').split(',')
     dns_test_site = os.getenv('DNS_TEST_SITE', 'google.com')
     speedtest_enabled = os.getenv("SPEEDTEST_ENABLED", 'False').lower() in ('true', '1', 't')
