@@ -157,3 +157,4 @@ cython_debug/
 
 # Log files
 
+.claude

@@ -11,15 +11,16 @@ FROM ${BASE_IMAGE_ARCH}/python:${PYTHON_VERSION}-slim-bookworm
 
 WORKDIR /netprobe_lite
 
-# Copy application code
-COPY src/ /netprobe_lite/
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends iputils-ping traceroute \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install python/pip
-ENV PYTHONUNBUFFERED=1
 ENV PIP_DISABLE_PIP_VERSION_CHECK=on
+COPY src/requirements.txt /netprobe_lite/requirements.txt
+RUN pip install --no-cache-dir --break-system-packages -r /netprobe_lite/requirements.txt
 
-RUN apt-get update && apt-get install -y iputils-ping && apt-get install -y traceroute && apt-get clean \
-    && pip install -r /netprobe_lite/requirements.txt --break-system-packages
+COPY src/ /netprobe_lite/
+ENV PYTHONUNBUFFERED=1
 
 # Make sure entrypoint.sh is executable
 RUN chmod +x /netprobe_lite/entrypoint.sh

@@ -12,7 +12,7 @@ echo " "
 docker build -t $registry:manifest-amd64 \
 --build-arg BASE_IMAGE_ARCH=amd64 \
 --build-arg PYTHON_VERSION=$python_version \
---platform windows/amd64 .
+--platform linux/amd64 .
 
 docker push $registry:manifest-amd64
 

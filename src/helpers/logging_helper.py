@@ -2,6 +2,7 @@
 # 
 # - Sets up logging config
 
+import sys
 import logging
 from logging.handlers import RotatingFileHandler
 
@@ -31,5 +32,11 @@ def setup_logging(filename):
     fileHandler.setFormatter(logFileFormatter)
     fileHandler.setLevel(level=logging.DEBUG)
     logger.addHandler(fileHandler)
+
+    # Also log to stdout so output appears in Docker/Portainer logs
+    streamHandler = logging.StreamHandler(sys.stdout)
+    streamHandler.setFormatter(logFileFormatter)
+    streamHandler.setLevel(level=logging.DEBUG)
+    logger.addHandler(streamHandler)
 
     return logger

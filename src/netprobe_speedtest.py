@@ -25,24 +25,26 @@ if __name__ == '__main__':
 
     collector = Netprobe_Speedtest()
 
+    cache = None
+
     while True:
-        
+
         try:
             stats = collector.collect()
             current_time = datetime.now()
 
         except Exception as e:
-            print("Error running speedtest")
             logger.error("Error running speedtest")
             logger.error(e)
             time.sleep(speedtest_interval)  # Pause before retrying
             continue
 
-        # Connect to Redis
+        # Connect to Redis (reuse or reconnect)
 
         try:
 
-            cache = RedisConnect()
+            if cache is None:
+                cache = RedisConnect()
 
             # Save Data to Redis
 
@@ -56,5 +58,6 @@ if __name__ == '__main__':
 
             logger.error("Could not connect to Redis")
             logger.error(e)
-        
+            cache = None
+
         time.sleep(speedtest_interval)

@@ -1,5 +1,5 @@
 # Redis helper
-# 
+#
 # Functions to help read and write from Redis
 
 
@@ -12,14 +12,19 @@ class RedisConnect():
     def __init__(self):
 
         # Load global variables
-        
+
         self.redis_url = Config_Redis.redis_url
         self.redis_port = Config_Redis.redis_port
         self.redis_password = Config_Redis.redis_password
 
         self.r = redis.Redis( # Connect to Redis
             host=self.redis_url,
-            port=self.redis_port
+            port=self.redis_port,
+            password=self.redis_password or None,
+            socket_timeout=5,
+            socket_connect_timeout=5,
+            retry_on_timeout=True,
+            decode_responses=True,
         )
 
     def redis_read(self,key): # Read data from Redis
@@ -38,4 +43,3 @@ class RedisConnect():
         write = self.r.set(key,json.dumps(data),ttl) # Store data with a given TTL
 
         return write
-    

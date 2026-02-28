@@ -21,6 +21,7 @@ class CustomCollector(object):
 
         # Connect to Redis
 
+        cache = None
         try:
             cache = RedisConnect()
         except Exception as e:
@@ -84,18 +85,20 @@ class CustomCollector(object):
             # If no stats are available, report zeros for the aggregated metrics
             g.add_metric(['latency', 'all'], average_latency)
             g.add_metric(['loss', 'all'], average_loss)
-            g.add_metric(['jitter', 'all'], average_jitter)     
+            g.add_metric(['jitter', 'all'], average_jitter)
 
         yield g
 
         h = GaugeMetricFamily("DNS_Stats", 'DNS performance statistics for various DNS servers', labels=['server'])
+
+        my_dns_latency = 0.0
 
         for item in stats_netprobe['dns_stats']:
             h.add_metric([item['nameserver']],item['latency'])
 
             if item['nameserver'] == 'My_DNS_Server':
                 my_dns_latency = float(item['latency']) # Grab the current DNS latency of the probe's DNS resolver
-    
+
         yield h
 
         # Retrieve Speedtest data
@@ -110,7 +113,7 @@ class CustomCollector(object):
             for key in stats_speedtest['speed_stats'].keys():
                 if stats_speedtest['speed_stats'][key]:
                     s.add_metric([key],stats_speedtest['speed_stats'][key])
-        
+
             yield s
 
         # Calculate overall health score
@@ -125,26 +128,33 @@ class CustomCollector(object):
         threshold_jitter = Config_Presentation.threshold_jitter # 30ms jitter threshold as max
         threshold_dns_latency = Config_Presentation.threshold_dns_latency # 100ms dns latency threshold as max
 
-
-        if average_loss / threshold_loss >= 1:
+        if threshold_loss and average_loss / threshold_loss >= 1:
             eval_loss = 1
-        else:
+        elif threshold_loss:
             eval_loss = average_loss / threshold_loss
+        else:
+            eval_loss = 0
 
-        if average_latency / threshold_latency >= 1:
+        if threshold_latency and average_latency / threshold_latency >= 1:
             eval_latency = 1
-        else:
+        elif threshold_latency:
             eval_latency = average_latency / threshold_latency
+        else:
+            eval_latency = 0
 
-        if average_jitter / threshold_jitter >= 1:
+        if threshold_jitter and average_jitter / threshold_jitter >= 1:
             eval_jitter = 1
-        else:
+        elif threshold_jitter:
             eval_jitter = average_jitter / threshold_jitter
-
-        if my_dns_latency / threshold_dns_latency >= 1:
-            eval_dns_latency = 1
         else:
+            eval_jitter = 0
+
+        if threshold_dns_latency and my_dns_latency / threshold_dns_latency >= 1:
+            eval_dns_latency = 1
+        elif threshold_dns_latency:
             eval_dns_latency = my_dns_latency / threshold_dns_latency
+        else:
+            eval_dns_latency = 0
 
         # Master scoring function
 
@@ -159,7 +169,7 @@ class CustomCollector(object):
 if __name__ == '__main__':
 
     start_http_server(Config_Presentation.presentation_port,addr=Config_Presentation.presentation_interface)
-    
+
     REGISTRY.register(CustomCollector())
     while True:
         time.sleep(15)

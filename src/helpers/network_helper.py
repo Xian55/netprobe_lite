@@ -1,6 +1,7 @@
 # Network tests
 import subprocess
 import json
+import time
 from threading import Thread
 import dns.resolver
 import speedtest
@@ -20,7 +21,21 @@ class NetworkCollector(object): # Main network collection class
 
     def pingtest(self,count,site):
 
-        ping = subprocess.getoutput(f"ping -n -i 0.1 -c {count} {site} | grep 'rtt\\|loss'")
+        try:
+            result = subprocess.run(
+                ["ping", "-n", "-i", "0.1", "-c", count, site],
+                capture_output=True, text=True, timeout=30
+            )
+            ping = result.stdout
+            # Extract rtt and loss lines
+            lines = [l for l in ping.split('\n') if 'rtt' in l or 'loss' in l]
+            ping = '\n'.join(lines)
+        except subprocess.TimeoutExpired:
+            print(f"Ping timed out for {site}")
+            return False
+        except Exception as e:
+            print(f"Error running ping for {site}: {e}")
+            return False
 
         try:
             loss = ping.split(' ')[5].strip('%')
@@ -36,48 +51,52 @@ class NetworkCollector(object): # Main network collection class
 
             self.stats.append(netdata)
 
-        except:
-            print(f"Error pinging {site}")
+        except Exception as e:
+            print(f"Error parsing ping output for {site}: {e}")
             return False
 
         return True
 
-    def dnstest(self,site,nameserver):
-        
-        my_resolver = dns.resolver.Resolver()
+    def dnstest(self,site,nameserver,retries=3):
 
-        server = [] # Resolver needs a list
-        server.append(nameserver[1])
+        server = [nameserver[1]]
 
-
-        try:
-
+        for attempt in range(1, retries + 1):
+            my_resolver = dns.resolver.Resolver()
             my_resolver.nameservers = server
-            my_resolver.timeout = 10
+            my_resolver.timeout = 5       # Per-request timeout in seconds
+            my_resolver.lifetime = 10     # Total time allowed for all attempts
 
-            answers = my_resolver.query(site,'A')
+            try:
+                answers = my_resolver.resolve(site,'A')
 
-            dns_latency = round(answers.response.time * 1000,2)
+                dns_latency = round(answers.response.time * 1000,2)
 
-            dnsdata = {
-                "nameserver":nameserver[0],
-                "nameserver_ip":nameserver[1],
-                "latency":dns_latency
-            }
+                dnsdata = {
+                    "nameserver":nameserver[0],
+                    "nameserver_ip":nameserver[1],
+                    "latency":dns_latency
+                }
 
-            self.dnsstats.append(dnsdata)
+                self.dnsstats.append(dnsdata)
+                return True
 
-        except Exception as e:
-            print(f"Error performing DNS resolution on {nameserver}")
-            print(e)
+            except Exception as e:
+                print(f"DNS attempt {attempt}/{retries} failed for {nameserver[0]} ({nameserver[1]}): {e}")
 
-            dnsdata = {
-                "nameserver":nameserver[0],
-                "nameserver_ip":nameserver[1],
-                "latency":5000
-            }
-            
-            self.dnsstats.append(dnsdata)
+                if attempt < retries:
+                    time.sleep(1)
+
+        # All retries exhausted
+        print(f"DNS resolution failed for {nameserver[0]} ({nameserver[1]}) after {retries} attempts")
+
+        dnsdata = {
+            "nameserver":nameserver[0],
+            "nameserver_ip":nameserver[1],
+            "latency":5000
+        }
+
+        self.dnsstats.append(dnsdata)
 
         return True
 
@@ -100,12 +119,12 @@ class NetworkCollector(object): # Main network collection class
             t.join()
 
         # Create threads, start them
-        threads = []            
+        threads = []
 
         for item in self.nameservers:
             s = Thread(target=self.dnstest, args=(self.dns_test_site,item,))
             threads.append(s)
-            s.start()            
+            s.start()
 
         # Wait for threads to complete
         for s in threads:
@@ -126,15 +145,19 @@ class Netprobe_Speedtest(object): # Speed test class
 
     def netprobe_speedtest(self):
 
-        s = speedtest.Speedtest()
-        s.get_best_server()
-        download = s.download()
-        upload = s.upload()
+        try:
+            s = speedtest.Speedtest()
+            s.get_best_server()
+            download = s.download()
+            upload = s.upload()
 
-        self.speedtest_stats = {
-            "download": download,
-            "upload": upload
-        }
+            self.speedtest_stats = {
+                "download": download,
+                "upload": upload
+            }
+        except Exception as e:
+            print(f"Speedtest failed: {e}")
+            self.speedtest_stats = {"download": None, "upload": None}
 
     def collect(self):
 
@@ -145,10 +168,3 @@ class Netprobe_Speedtest(object): # Speed test class
         })
 
         return results
-
-
-
-
-
-
-

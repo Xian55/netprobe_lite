@@ -9,7 +9,10 @@ class CallHome(object): # Call home http functions
     def post_stats(self,url,stats):
 
         headers={"Content-Type":"application/json"}
-        
-        request = requests.post(url, data=stats,headers=headers)
 
-        return (request.status_code,request.content)
+        try:
+            request = requests.post(url, data=stats, headers=headers, timeout=10)
+            return (request.status_code, request.content)
+        except requests.exceptions.RequestException as e:
+            print(f"HTTP request failed: {e}")
+            return (0, str(e))

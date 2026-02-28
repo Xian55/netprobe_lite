@@ -29,23 +29,26 @@ if __name__ == '__main__':
     for nameserver, ip in nameservers_external:
         logger.info(f"Nameserver: {nameserver}, IP: {ip}")
 
+    cache = None
+
     while True:
-        
+
         try:
             stats = collector.collect()
             current_time = datetime.now()
 
         except Exception as e:
-            print("Error testing network")
             logger.error("Error testing network")
             logger.error(e)
+            time.sleep(probe_interval)
             continue
 
-        # Connect to Redis
+        # Connect to Redis (reuse or reconnect)
 
         try:
 
-            cache = RedisConnect()
+            if cache is None:
+                cache = RedisConnect()
 
             # Save Data to Redis
 
@@ -59,5 +62,6 @@ if __name__ == '__main__':
 
             logger.error("Could not connect to Redis")
             logger.error(e)
-        
+            cache = None
+
         time.sleep(probe_interval)
